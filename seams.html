@@ -770,7 +770,7 @@ function decodeState(h){
   var SAMPLE_OWNER=1;
 
   var $=function(id){return document.getElementById(id)};
-  var sel=new Set(),owner=SAMPLE_OWNER,extra=0,isSample=true,showAll=false,last=null,startName=null,sharedView=false,cardBlob=null;
+  var sel=new Set(),owner=SAMPLE_OWNER,extra=0,isSample=false,showAll=false,last=null,startName=null,sharedView=false,cardBlob=null;
   function ctaHref(a){
     var q='?utm_source=seams&utm_medium=assessment';
     if(a&&a.n)q+='&utm_campaign='+a.grade.toLowerCase().replace(/[^a-z]/g,'');
@@ -1118,7 +1118,7 @@ function decodeState(h){
     if(location.hash==='#'+encodeState(sel,owner,extra))return;
     applyHash(true);
   });
-  if(!applyHash()){loadSample();render(false)}
+  if(!applyHash())render(false)
 
   /* slim score bar once the big readout scrolls away */
   if('IntersectionObserver' in window){
