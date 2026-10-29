@@ -202,19 +202,21 @@ ok('mid cta matches cta', t.mid.href === t.c.href);
 ok('own stack summary: score and grade', t.s && t.s.startsWith('I ran my stack through SEAMS: ' + view(w).score + '/100, '), t.s);
 ok('own stack summary: tools', /\nTools: .*Shopify/.test(t.s), t.s);
 ok('own stack summary: who finds out', /\nWho finds out first when a seam breaks: whoever happens to notice\./.test(t.s), t.s);
-ok('own stack summary: result link round-trips', /\nResult: https:\/\/example\.test\/\?r=s-[lb][0-9a-z]+$/.test(t.s), t.s);
-eq('summary link decodes to this stack', view(load(t.s.split('Result: ')[1])).pressed, view(w).pressed);
+ok('form summary leaves the link to its own field', !/Result:/.test(t.s), t.s);
+ok('cta passes the share state as r', /^s-[lb][0-9a-z]+$/.test(t.c.searchParams.get('r') || ''), t.c.href);
+eq('r is this stack, same as the page link', t.c.searchParams.get('r'), w.location.search.split('?r=')[1]);
+eq('r decodes to this stack', view(load('https://example.test/?r=' + t.c.searchParams.get('r'))).pressed, view(w).pressed);
 eq('mailto goes to the inbox', t.m.protocol + t.m.pathname, 'mailto:j@jas.run');
 ok('mailto subject names the score', t.subject.startsWith('Seam audit: ' + view(w).score + '/100'), t.subject);
 ok('mailto body is the summary', t.body.startsWith('I ran my stack through SEAMS') && /Result: https:/.test(t.body), t.body);
 
 // no summary unless it is the visitor's own stack
-const plain = x => ({ s: x.s, body: x.body, from: x.c.searchParams.get('from') });
+const plain = x => ({ s: x.s, r: x.c.searchParams.get('r'), body: x.body, from: x.c.searchParams.get('from') });
 let w7 = load('https://example.test/'), d7 = w7.document;
-eq('empty stack: clean form link', plain(cta(w7)), { s: null, body: 'I would like to talk about my stack.', from: 'seams' });
+eq('empty stack: clean form link', plain(cta(w7)), { s: null, r: null, body: 'I would like to talk about my stack.', from: 'seams' });
 d7.getElementById('bSample').click();
-eq('sample stack: clean form link', plain(cta(w7)).s, null);
-eq('shared link: clean form link', plain(cta(load('https://example.test/?r=' + state))).s, null);
+eq('sample stack: clean form link', [plain(cta(w7)).s, plain(cta(w7)).r], [null, null]);
+eq('shared link: clean form link', (x => [x.s, x.r])(plain(cta(load('https://example.test/?r=' + state)))), [null, null]);
 eq('shared link keeps from=seams', plain(cta(load('https://example.test/?r=' + state))).from, 'seams');
 d7.getElementById('shFresh') && d7.getElementById('shFresh').click();
 
@@ -224,7 +226,9 @@ w7 = load('https://example.test/'); d7 = w7.document;
 t = cta(w7);
 ok('max stack: 291 chips', view(w7).pressed === 291);
 ok('max stack: s within cap', t.s.length <= 1400, 'length ' + t.s.length);
-ok('max stack: link intact at the end', /Result: https:\/\/example\.test\/\?r=s-[lb][0-9a-z]+$/.test(t.s));
+ok('max stack: r present and whole', /^s-[lb][0-9a-z]+$/.test(t.c.searchParams.get('r') || ''));
+eq('max stack: r decodes to all 291', view(load('https://example.test/?r=' + t.c.searchParams.get('r'))).pressed, 291);
+ok('max stack: mailto body keeps the link whole', /\nResult: https:\/\/example\.test\/\?r=s-[lb][0-9a-z]+\n\n$/.test(t.body), t.body.slice(-120));
 ok('max stack: tools truncated with a count', /Tools: .*, and \d+ more\./.test(t.s));
 ok('max stack: mailto body within cap', t.body.length <= 900 + 2, 'length ' + t.body.length);
 ok('max stack: url stays under 8000 chars', t.c.href.length < 8000, 'length ' + t.c.href.length);

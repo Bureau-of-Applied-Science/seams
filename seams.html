@@ -783,12 +783,13 @@ function decodeState(h){
     try{return location.origin+location.pathname+'?r='+encodeState(sel,owner,extra)}catch(e){return ''}
   }
   // Plain text for the contact form and the email. max bounds the whole summary; the tool list gives way first.
-  function stackSummary(a,max){
+  // The form gets the result link as its own field, so only the email body repeats it inline.
+  function stackSummary(a,max,withLink){
     var tools=[],layer=[];
     Array.from(sel).sort(function(x,y){return ITEMS[x].name.toLowerCase()<ITEMS[y].name.toLowerCase()?-1:1}).forEach(function(i){
       (ITEMS[i].cat==='human'?layer:tools).push(ITEMS[i].name);
     });
-    var link=resultLink();
+    var link=withLink?resultLink():'';
     var head='I ran my stack through SEAMS: '+a.score+'/100, '+a.grade+'.';
     var top=a.top?'Top seam: '+a.top.label+'.':'';
     var more=extra?' ('+extra+(extra===1?' tool':' tools')+' not on the map)':'';
@@ -812,12 +813,12 @@ function decodeState(h){
   }
   function ctaHref(a){
     var q='?from=seams&'+utm(a);
-    if(ownResult(a))q+='&s='+encodeURIComponent(stackSummary(a,1400));
+    if(ownResult(a))q+='&s='+encodeURIComponent(stackSummary(a,1400,false))+'&r='+encodeURIComponent(encodeState(sel,owner,extra));
     return CONTACT_URL+q;
   }
   function mailHref(a){
     var subject='Seam audit',body='I would like to talk about my stack.';
-    if(ownResult(a)){subject+=': '+a.score+'/100 '+a.grade;body=stackSummary(a,900)+'\n\n'}
+    if(ownResult(a)){subject+=': '+a.score+'/100 '+a.grade;body=stackSummary(a,900,true)+'\n\n'}
     return 'mailto:'+CONTACT_EMAIL+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
   }
   function touch(){isSample=false;showAll=false;startName=null;sharedView=false}
