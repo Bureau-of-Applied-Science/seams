@@ -3,7 +3,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { analyze, decodeState } = require('./logic.js');
+const { analyze, decodeState, PRESETS } = require('./logic.js');
 const card = require('./card.js');
 
 const PORT = Number(process.env.PORT || 3010);
@@ -94,6 +94,53 @@ async function ogFor(r) {
   return inflight.get(r);
 }
 
+// First-party event counter. One JSON line per event: hour, event name, grade, preset id. No IP, no stack, no
+// identifier. The IP is used only to throttle and is never written down.
+const EVENTS_FILE = process.env.EVENTS_FILE || path.join(__dirname, 'data', 'events.ndjson');
+fs.mkdirSync(path.dirname(EVENTS_FILE), { recursive: true });
+const EVENT_NAMES = new Set(['preset', 'assessed', 'copy_text', 'copy_link', 'save_image', 'share', 'cta_main', 'cta_mid', 'cta_mail']);
+const GRADES = new Set(['', 'sound', 'stitched', 'taped', 'loadbearing', 'critical']);
+const PRESET_IDS = new Set(['', ...Object.keys(PRESETS)]);
+const BEACON_MAX_BYTES = 512;
+const RATE_PER_MINUTE = 60;
+const rates = new Map();
+
+function throttled(ip) {
+  const now = Date.now();
+  if (rates.size > 5000) rates.clear();
+  const r = rates.get(ip);
+  if (!r || now > r.reset) { rates.set(ip, { n: 1, reset: now + 60000 }); return false; }
+  return ++r.n > RATE_PER_MINUTE;
+}
+
+function recordEvent(raw) {
+  let m;
+  try { m = JSON.parse(raw); } catch (e) { return; }
+  if (!m || typeof m !== 'object') return;
+  const e = m.e, g = m.g === undefined ? '' : m.g, pr = m.p === undefined ? '' : m.p;
+  if (!EVENT_NAMES.has(e) || !GRADES.has(g) || !PRESET_IDS.has(pr)) return;
+  const hour = new Date().toISOString().slice(0, 13);
+  fs.appendFile(EVENTS_FILE, JSON.stringify({ t: hour, e, g, p: pr }) + '\n', err => { if (err) console.error(err); });
+}
+
+function handleBeacon(req, res) {
+  const origin = req.headers.origin;
+  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const sameOrigin = !origin || origin === ORIGIN;
+  let body = '', size = 0, over = false;
+  req.on('data', c => {
+    size += c.length;
+    if (size > BEACON_MAX_BYTES) { over = true; req.destroy(); return; }
+    body += c;
+  });
+  req.on('end', () => {
+    if (sameOrigin && !over && !throttled(ip)) recordEvent(body);
+    res.writeHead(204, SEC);
+    res.end();
+  });
+  req.on('error', () => {});
+}
+
 const TYPES = { '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8' };
 function send(res, code, type, body, extra) {
   res.writeHead(code, Object.assign({ 'Content-Type': type, 'Content-Length': Buffer.byteLength(body) }, SEC, extra));
@@ -102,9 +149,10 @@ function send(res, code, type, body, extra) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'text/plain', 'Method not allowed', { Allow: 'GET, HEAD' });
     const u = new URL(req.url, ORIGIN);
     const p = u.pathname;
+    if (req.method === 'POST' && p === '/b') return handleBeacon(req, res);
+    if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'text/plain', 'Method not allowed', { Allow: 'GET, HEAD' });
     if (p === '/') {
       return send(res, 200, 'text/html; charset=utf-8', renderPage(u.searchParams.get('r')), { 'Cache-Control': 'public, max-age=300' });
     }

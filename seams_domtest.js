@@ -20,6 +20,8 @@ function load(url) {
         get: (t, k) => k === 'measureText' ? (s => ({ width: String(s).length * 10 })) : (k in t ? t[k] : () => {}),
         set: (t, k, v) => { t[k] = v; return true; }
       });
+      w.__beacons = [];
+      Object.defineProperty(w.navigator, 'sendBeacon', { value: (url, data) => { w.__beacons.push([url, JSON.parse(data)]); return true; } });
       w.HTMLCanvasElement.prototype.getContext = () => ctx;
       w.HTMLCanvasElement.prototype.toBlob = function (cb) { cb(null); };
     }
@@ -232,6 +234,44 @@ ok('max stack: mailto body keeps the link whole', /\nResult: https:\/\/example\.
 ok('max stack: tools truncated with a count', /Tools: .*, and \d+ more\./.test(t.s));
 ok('max stack: mailto body within cap', t.body.length <= 900 + 2, 'length ' + t.body.length);
 ok('max stack: url stays under 8000 chars', t.c.href.length < 8000, 'length ' + t.c.href.length);
+
+// ---- first-party events: names and grades only, never the stack
+const ev = win => win.__beacons.map(b => b[1].e + (b[1].g ? '/' + b[1].g : '') + (b[1].p ? '/' + b[1].p : ''));
+ok('footer names what is counted', /preset chosen, assessment finished/.test(d.querySelector('footer').textContent));
+let we = load('https://example.test/'), de = we.document;
+eq('bare load sends nothing', ev(we), []);
+de.getElementById('bSample').click();
+eq('sample sends nothing', ev(we), []);
+de.getElementById('bClear').click();
+chip(de, 'Stripe').click();
+eq('one item is not an assessment', ev(we), []);
+chip(de, 'Kajabi').click();
+const g2 = view(we).grade.toLowerCase().replace(/[^a-z]/g, '');
+eq('two items send assessed once', ev(we), ['assessed/' + g2]);
+chip(de, 'Zendesk').click();
+eq('more taps do not repeat assessed', ev(we), ['assessed/' + g2]);
+const g3 = view(we).grade.toLowerCase().replace(/[^a-z]/g, '');
+we.__beacons.length = 0;
+['copyText', 'copyLink', 'saveImg', 'ctaLink', 'midLink', 'mailLink'].forEach(id => de.getElementById(id).click());
+eq('actions send their own event with the grade', ev(we),
+  ['copy_text', 'copy_link', 'save_image', 'cta_main', 'cta_mid', 'cta_mail'].map(e => e + '/' + g3));
+we.__beacons.length = 0;
+[...de.querySelectorAll('#presetRow button')].find(b => b.textContent === 'Online store').click();
+eq('preset click sends the preset id', ev(we).filter(e => e.startsWith('preset')), ['preset/store']);
+ok('every payload is exactly e, g, p', we.__beacons.every(b => JSON.stringify(Object.keys(b[1])) === '["e","g","p"]' && b[0] === '/b'));
+ok('no payload carries a stack or link', !we.__beacons.some(b => /s-[lb]0|Stripe|Kajabi|example\.test/.test(JSON.stringify(b[1]))));
+eq('shared link sends nothing on arrival', ev(load('https://example.test/?r=' + state)), []);
+eq('?start= sends nothing on arrival', ev(load('https://example.test/?start=hotel')), []);
+eq('#start- sends nothing on arrival', ev(load('https://example.test/#start-hotel')), []);
+const wsh = load('https://example.test/?r=' + state);
+wsh.document.getElementById('shEdit').click();
+eq('opening the editor is not an assessment', ev(wsh), []);
+chip(wsh.document, 'Mailchimp').click();
+eq('a tap after editing a shared stack counts as assessed', ev(wsh).map(e => e.split('/')[0]), ['assessed']);
+const wpre = load('https://example.test/?start=hotel');
+eq('a preset link followed by no tap sends nothing', ev(wpre), []);
+chip(wpre.document, 'Stripe').click();
+eq('the first tap after a preset link counts', ev(wpre).map(e => e.split('/')[0]), ['assessed']);
 
 eq('page errors', errors, []);
 console.log(passed + ' passed, ' + failed + ' failed');

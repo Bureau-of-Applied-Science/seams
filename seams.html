@@ -372,7 +372,7 @@ details.method p{margin:10px 0 0;max-width:64ch;color:var(--dim);font:400 13px/1
   </section>
 
   <footer>
-    The assessment runs in your browser, and your result is encoded in the link. Open a link and the server sees that result in its ordinary request log. No accounts, no cookies, no tracking scripts. If you ask for an audit, your result goes to the Bureau's contact form only when you click that button, and nothing is sent until you press Send. The seam patterns come from operating payments, support, community and email stacks for subscription businesses. Tool lists are compiled from current small-business software roundups, shown alphabetically with no ranking. Bureau of Applied Science, Ltd.
+    The assessment runs in your browser, and your result is encoded in the link. Open a link and the server sees that result in its ordinary request log. No accounts, no cookies, no tracking scripts. If you ask for an audit, your result goes to the Bureau's contact form only when you click that button, and nothing is sent until you press Send. The page counts these actions by name, with no stack and no identifier: preset chosen, assessment finished, text or link copied, image saved, result shared, audit requested. The seam patterns come from operating payments, support, community and email stacks for subscription businesses. Tool lists are compiled from current small-business software roundups, shown alphabetically with no ranking. Bureau of Applied Science, Ltd.
   </footer>
 </div>
 
@@ -821,7 +821,17 @@ function decodeState(h){
     if(ownResult(a)){subject+=': '+a.score+'/100 '+a.grade;body=stackSummary(a,900,true)+'\n\n'}
     return 'mailto:'+CONTACT_EMAIL+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
   }
-  function touch(){isSample=false;showAll=false;startName=null;sharedView=false}
+  function touch(){engaged=true;isSample=false;showAll=false;startName=null;sharedView=false}
+  // First-party event counter. Sends an event name and a grade or preset id, never the stack or the link.
+  var engaged=false,assessedSent=false;
+  function beacon(e,g,p){
+    try{
+      var d=JSON.stringify({e:e,g:g||'',p:p||''});
+      if(navigator.sendBeacon&&navigator.sendBeacon('/b',d))return;
+      fetch('/b',{method:'POST',body:d,keepalive:true}).catch(function(){});
+    }catch(_){}
+  }
+  function gradeKey(a){return a&&a.n?a.grade.toLowerCase().replace(/[^a-z]/g,''):''}
   $('ctaLink').href=ctaHref(null);
   $('mapped').textContent=ITEMS.length+' tools mapped across '+(CATS.length-1)+' categories, plus the unofficial layer. Count the unofficial layer too. It is usually where the real risk is.';
 
@@ -884,6 +894,7 @@ function decodeState(h){
     sel=new Set();
     ITEMS.forEach(function(it){if(pr.names.indexOf(it.name)>-1)sel.add(it.idx)});
     owner=1;extra=0;isSample=false;showAll=false;sharedView=false;startName=pr.label;
+    if(write){engaged=true;beacon('preset','',id)}
     render(write);
     return true;
   }
@@ -1032,6 +1043,7 @@ function decodeState(h){
       $('showAll').addEventListener('click',function(){showAll=true;render(false)});
     }else{more.innerHTML=''}
 
+    if(engaged&&!assessedSent&&ownResult(a)&&a.n>=2){assessedSent=true;beacon('assessed',gradeKey(a))}
     if(writeHash&&!isSample)setHash();
     $('shareText').value=shareText(a);
     drawCard(a);
@@ -1113,12 +1125,17 @@ function decodeState(h){
       }else fallback();
     }catch(e){fallback()}
   }
-  $('copyText').addEventListener('click',function(){copy($('shareText').value,'Copied.')});
+  $('copyText').addEventListener('click',function(){beacon('copy_text',gradeKey(last));copy($('shareText').value,'Copied.')});
+  $('ctaLink').addEventListener('click',function(){beacon('cta_main',gradeKey(last))});
+  $('midLink').addEventListener('click',function(){beacon('cta_mid',gradeKey(last))});
+  $('mailLink').addEventListener('click',function(){beacon('cta_mail',gradeKey(last))});
   $('copyLink').addEventListener('click',function(){
+    beacon('copy_link',gradeKey(last));
     var l='';try{l=location.href}catch(e){}
     copy(l,'Link copied.');
   });
   $('saveImg').addEventListener('click',function(){
+    beacon('save_image',gradeKey(last));
     try{
       $('card').toBlob(function(b){
         if(!b){status('Press and hold or right-click the card to save it.');return}
@@ -1133,6 +1150,7 @@ function decodeState(h){
   if(navigator.share){
     var sb=$('shareBtn');sb.hidden=false;
     sb.addEventListener('click',function(){
+      beacon('share',gradeKey(last));
       var l='';try{l=location.href}catch(e){}
       var data={title:'SEAMS',text:last.roast+' '+last.score+'/100 on the Seam Assessment.',url:l};
       try{
