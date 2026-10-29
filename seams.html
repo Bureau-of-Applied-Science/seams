@@ -209,6 +209,18 @@ textarea{
 
 footer{margin-top:34px;font:400 12px/1.6 var(--mono);color:var(--dim);max-width:70ch}
 
+/* links back to the main site: strip and sticky bar */
+.strip a,.sticky a.home{color:inherit;text-decoration:none}
+.strip a:hover b{text-decoration:underline;text-underline-offset:3px}
+.strip a:focus-visible,.sticky a.home:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.sticky a.home{
+  flex:0 0 auto;display:inline-flex;align-items:center;min-height:36px;padding:0 14px 0 0;margin-right:2px;
+  border-right:1px solid var(--line);font:600 12px/1 var(--mono);letter-spacing:.14em;color:var(--amber);
+}
+.sticky a.home:hover{color:var(--cream)}
+.sticky-score{display:flex;align-items:center;gap:6px 14px;flex:1 1 auto;min-width:0}
+@media (max-width:420px){.sticky .lab{display:none}}
+
 /* safe-area band, sticky score bar */
 html{scroll-padding-top:60px}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
@@ -261,16 +273,19 @@ details.method p{margin:10px 0 0;max-width:64ch;color:var(--dim);font:400 13px/1
 }
 </style>
 
-<div class="sticky" id="sticky" hidden aria-hidden="true">
+<div class="sticky" id="sticky" hidden>
   <div class="sticky-in">
-    <span class="lab">Seam load</span><b id="sScore">0</b><span class="sg" id="sGrade">-</span>
-    <div class="sbar"><i id="sFill" style="width:0%"></i></div>
+    <a class="home" id="stickyHome" href="https://bureauofapplied.science" aria-label="Bureau of Applied Science, main site">BAS</a>
+    <div class="sticky-score" aria-hidden="true">
+      <span class="lab">Seam load</span><b id="sScore">0</b><span class="sg" id="sGrade">-</span>
+      <div class="sbar"><i id="sFill" style="width:0%"></i></div>
+    </div>
   </div>
 </div>
 
 <div class="wrap">
   <div class="strip">
-    <span><b>Bureau of Applied Science</b></span>
+    <span><a id="stripHome" href="https://bureauofapplied.science"><b>Bureau of Applied Science</b></a></span>
     <span>Form 7-S</span>
     <span>Seam Assessment</span>
   </div>
@@ -833,6 +848,7 @@ function decodeState(h){
   }
   function gradeKey(a){return a&&a.n?a.grade.toLowerCase().replace(/[^a-z]/g,''):''}
   $('ctaLink').href=ctaHref(null);
+  $('stripHome').href=$('stickyHome').href=CTA_URL+'?utm_source=seams&utm_medium=header';
   $('mapped').textContent=ITEMS.length+' tools mapped across '+(CATS.length-1)+' categories, plus the unofficial layer. Count the unofficial layer too. It is usually where the real risk is.';
 
   function loadSample(){

@@ -273,6 +273,18 @@ eq('a preset link followed by no tap sends nothing', ev(wpre), []);
 chip(wpre.document, 'Stripe').click();
 eq('the first tap after a preset link counts', ev(wpre).map(e => e.split('/')[0]), ['assessed']);
 
+// ---- links back to the main site
+const strip = new URL(d.getElementById('stripHome').href);
+eq('strip links to BAS', [strip.origin, strip.searchParams.get('utm_source'), strip.searchParams.get('utm_medium')], ['https://bureauofapplied.science', 'seams', 'header']);
+ok('strip link wraps the name', d.getElementById('stripHome').textContent === 'Bureau of Applied Science');
+eq('sticky links to the same place', d.getElementById('stickyHome').href, d.getElementById('stripHome').href);
+ok('sticky BAS link is leftmost in the bar', d.querySelector('.sticky-in').firstElementChild === d.getElementById('stickyHome'));
+eq('sticky BAS link label', d.getElementById('stickyHome').textContent, 'BAS');
+ok('sticky link has an accessible name', /Bureau of Applied Science/.test(d.getElementById('stickyHome').getAttribute('aria-label')));
+ok('sticky link is not inside aria-hidden', !d.getElementById('stickyHome').closest('[aria-hidden="true"]'));
+eq('score group stays aria-hidden', d.querySelector('.sticky-score').getAttribute('aria-hidden'), 'true');
+eq('sticky bar itself is not aria-hidden', d.getElementById('sticky').hasAttribute('aria-hidden'), false);
+
 eq('page errors', errors, []);
 console.log(passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);
