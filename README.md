@@ -138,7 +138,7 @@ cd deploy && node build.js && node server-check.js   # server; 0 failed
 
 ## About
 
-SEAMS is Model 1 of the Bureau of Applied Science, a consultancy in Manitou Springs, Colorado, run by Jason Sayre. The Bureau publishes instruments, small tools that state their rules and show their reasoning. SEAMS is the second.
+SEAMS is an instrument of the Bureau of Applied Science, a consultancy in Colorado Springs, Colorado, run by Jason Sayre. The Bureau publishes instruments, small tools that state their rules and show their reasoning.
 
 If SEAMS scored your stack higher than you would like, that is the work:
 
