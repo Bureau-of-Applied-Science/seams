@@ -1,14 +1,14 @@
 {
   "name": "deploy",
   "version": "1.0.0",
-  "description": "",
+  "description": "SEAMS server: page, share cards and event beacon",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
