@@ -203,6 +203,9 @@ textarea{
 .cta .btn{border-color:var(--amber-ink);color:var(--amber-ink)}
 .cta .btn:hover{background:var(--amber-ink);color:var(--amber)}
 .cta .btn:focus-visible{outline-color:var(--amber-ink)}
+.cta p.ctanote{margin:16px 0 0;max-width:56ch;font:500 13px/1.5 var(--mono)}
+.cta p.ctanote a{color:var(--amber-ink);text-underline-offset:2px}
+.cta p.ctanote a:focus-visible{outline:2px solid var(--amber-ink);outline-offset:2px}
 
 footer{margin-top:34px;font:400 12px/1.6 var(--mono);color:var(--dim);max-width:70ch}
 
@@ -331,7 +334,7 @@ details.method p{margin:10px 0 0;max-width:64ch;color:var(--dim);font:400 13px/1
     </div>
     <div class="midcta" id="midCta" hidden>
       <p id="midText"></p>
-      <a class="btn" id="midLink" href="https://bureauofapplied.science" target="_blank" rel="noopener">Get it read</a>
+      <a class="btn" id="midLink" href="https://bureauofapplied.science/contact?from=seams" target="_blank" rel="noopener">Get it read</a>
     </div>
     <div class="lab" style="margin-top:34px">Check these first</div>
     <ol class="seams" id="seams"></ol>
@@ -364,11 +367,12 @@ details.method p{margin:10px 0 0;max-width:64ch;color:var(--dim);font:400 13px/1
     <div class="eyebrow">The real one</div>
     <h2 id="h-cta">Want your actual stack read by a person?</h2>
     <p>The Bureau audits the seams in a real stack: what connects, what is held together by hand, and what to fix first.</p>
-    <a class="btn" id="ctaLink" href="https://bureauofapplied.science" target="_blank" rel="noopener">Book a seam audit</a>
+    <a class="btn" id="ctaLink" href="https://bureauofapplied.science/contact?from=seams" target="_blank" rel="noopener">Request a seam audit</a>
+    <p class="ctanote">Opens the Bureau's contact form with your result filled in. Nothing is sent until you press Send. Prefer email? <a id="mailLink" href="mailto:j@jas.run">j@jas.run</a></p>
   </section>
 
   <footer>
-    The assessment runs in your browser, and your result is encoded in the link. Open a link and the server sees that result in its ordinary request log. No accounts, no cookies, no tracking scripts. The seam patterns come from operating payments, support, community and email stacks for subscription businesses. Tool lists are compiled from current small-business software roundups, shown alphabetically with no ranking. Bureau of Applied Science, Ltd.
+    The assessment runs in your browser, and your result is encoded in the link. Open a link and the server sees that result in its ordinary request log. No accounts, no cookies, no tracking scripts. If you ask for an audit, your result goes to the Bureau's contact form only when you click that button, and nothing is sent until you press Send. The seam patterns come from operating payments, support, community and email stacks for subscription businesses. Tool lists are compiled from current small-business software roundups, shown alphabetically with no ranking. Bureau of Applied Science, Ltd.
   </footer>
 </div>
 
@@ -765,16 +769,56 @@ function decodeState(h){
 (function(){
   'use strict';
   var CTA_URL='https://bureauofapplied.science';
+  var CONTACT_URL=CTA_URL+'/contact';
+  var CONTACT_EMAIL='j@jas.run';
   var SITE_LABEL='bureauofapplied.science';
   var SAMPLE=['Stripe','Kajabi','Zendesk','Mailchimp','QuickBooks','Zapier','Google Sheets'];
   var SAMPLE_OWNER=1;
 
   var $=function(id){return document.getElementById(id)};
   var sel=new Set(),owner=SAMPLE_OWNER,extra=0,isSample=false,showAll=false,last=null,startName=null,sharedView=false,cardBlob=null;
-  function ctaHref(a){
-    var q='?utm_source=seams&utm_medium=assessment';
+  // Only the visitor's own stack is summarised. The sample, a shared link and an empty stack get a clean form.
+  function ownResult(a){return !!(a&&a.n&&!isSample&&!sharedView)}
+  function resultLink(){
+    try{return location.origin+location.pathname+'?r='+encodeState(sel,owner,extra)}catch(e){return ''}
+  }
+  // Plain text for the contact form and the email. max bounds the whole summary; the tool list gives way first.
+  function stackSummary(a,max){
+    var tools=[],layer=[];
+    Array.from(sel).sort(function(x,y){return ITEMS[x].name.toLowerCase()<ITEMS[y].name.toLowerCase()?-1:1}).forEach(function(i){
+      (ITEMS[i].cat==='human'?layer:tools).push(ITEMS[i].name);
+    });
+    var link=resultLink();
+    var head='I ran my stack through SEAMS: '+a.score+'/100, '+a.grade+'.';
+    var top=a.top?'Top seam: '+a.top.label+'.':'';
+    var more=extra?' ('+extra+(extra===1?' tool':' tools')+' not on the map)':'';
+    var lay=layer.length?'Unofficial layer: '+layer.join('; ')+'.':'';
+    var who='Who finds out first when a seam breaks: '+OWNERS[owner].toLowerCase()+'.';
+    var tail=(link?'Result: '+link:'');
+    var fixed=[head,top,lay,who,tail].filter(Boolean).join('\n');
+    var budget=Math.max(0,max-fixed.length-60);
+    var list=tools.join(', '),shown=tools.length;
+    if(list.length>budget){
+      while(shown>0&&(tools.slice(0,shown).join(', ').length+14)>budget)shown--;
+      list=tools.slice(0,shown).join(', ')+(shown?', and ':'')+(tools.length-shown)+' more';
+    }
+    var toolLine=tools.length||extra?'Tools: '+list+more+'.':'';
+    return [head,top,toolLine,lay,who,tail].filter(Boolean).join('\n').slice(0,max);
+  }
+  function utm(a){
+    var q='utm_source=seams&utm_medium=assessment';
     if(a&&a.n)q+='&utm_campaign='+a.grade.toLowerCase().replace(/[^a-z]/g,'');
-    return CTA_URL+q;
+    return q;
+  }
+  function ctaHref(a){
+    var q='?from=seams&'+utm(a);
+    if(ownResult(a))q+='&s='+encodeURIComponent(stackSummary(a,1400));
+    return CONTACT_URL+q;
+  }
+  function mailHref(a){
+    var subject='Seam audit',body='I would like to talk about my stack.';
+    if(ownResult(a)){subject+=': '+a.score+'/100 '+a.grade;body=stackSummary(a,900)+'\n\n'}
+    return 'mailto:'+CONTACT_EMAIL+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
   }
   function touch(){isSample=false;showAll=false;startName=null;sharedView=false}
   $('ctaLink').href=ctaHref(null);
@@ -975,6 +1019,7 @@ function decodeState(h){
       $('midLink').href=ctaHref(a);
     }else{mc.hidden=true}
     $('ctaLink').href=ctaHref(a);
+    $('mailLink').href=mailHref(a);
     var nn=$('nativeNote');
     if(a.nativeN>0){
       nn.hidden=false;

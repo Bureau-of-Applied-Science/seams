@@ -154,8 +154,8 @@ eq('editing a preset hides its banner', view(w).banner, '');
 // ---- mid CTA, final CTA and sticky bar
 eq('mid cta shown', d.getElementById('midCta').hidden, false);
 ok('mid cta names top seam', /^Your top seam is /.test(d.getElementById('midText').textContent));
-ok('mid cta utm', /utm_source=seams&utm_medium=assessment&utm_campaign=[a-z]+$/.test(d.getElementById('midLink').href), d.getElementById('midLink').href);
-ok('cta utm', /utm_campaign=[a-z]+$/.test(d.getElementById('ctaLink').href));
+ok('mid cta utm', /utm_source=seams&utm_medium=assessment&utm_campaign=[a-z]+(&|$)/.test(d.getElementById('midLink').href), d.getElementById('midLink').href);
+ok('cta utm', /utm_campaign=[a-z]+(&|$)/.test(d.getElementById('ctaLink').href));
 eq('sticky score matches', d.getElementById('sScore').textContent, view(w).score);
 ok('share text has score', d.getElementById('shareText').value.startsWith('I scored ' + view(w).score + '/100'));
 
@@ -185,6 +185,49 @@ for (const [label, url] of [['?start=', 'https://example.test/?start=restaurant'
 eq('?start=nonsense is empty', view(load('https://example.test/?start=nonsense')).banner, EMPTY_BANNER);
 eq('#start-nonsense is empty', view(load('https://example.test/#start-nonsense')).banner, EMPTY_BANNER);
 eq('?start= beats ?r=', view(load('https://example.test/?start=hotel&r=' + state)).pressed, 8);
+
+// ---- CTAs hand the result to the BAS contact form, with an email fallback
+const CONTACT = 'https://bureauofapplied.science/contact';
+function cta(win) {
+  const dd = win.document;
+  const c = new URL(dd.getElementById('ctaLink').href), m = new URL(dd.getElementById('mailLink').href);
+  return { c, m, mid: new URL(dd.getElementById('midLink').href), s: c.searchParams.get('s'), body: m.searchParams.get('body'), subject: m.searchParams.get('subject') };
+}
+ok('cta labels', /Request a seam audit/.test(d.getElementById('ctaLink').textContent) && /Nothing is sent until you press Send/.test(d.querySelector('.ctanote').textContent));
+ok('footer says when the result leaves the page', /only when you click that button/.test(d.querySelector('footer').textContent));
+let t = cta(w);
+eq('cta targets the contact form', [t.c.origin + t.c.pathname, t.c.searchParams.get('from')], [CONTACT, 'seams']);
+ok('cta keeps utm', /^[a-z]+$/.test(t.c.searchParams.get('utm_campaign') || '') && t.c.searchParams.get('utm_source') === 'seams');
+ok('mid cta matches cta', t.mid.href === t.c.href);
+ok('own stack summary: score and grade', t.s && t.s.startsWith('I ran my stack through SEAMS: ' + view(w).score + '/100, '), t.s);
+ok('own stack summary: tools', /\nTools: .*Shopify/.test(t.s), t.s);
+ok('own stack summary: who finds out', /\nWho finds out first when a seam breaks: whoever happens to notice\./.test(t.s), t.s);
+ok('own stack summary: result link round-trips', /\nResult: https:\/\/example\.test\/\?r=s-[lb][0-9a-z]+$/.test(t.s), t.s);
+eq('summary link decodes to this stack', view(load(t.s.split('Result: ')[1])).pressed, view(w).pressed);
+eq('mailto goes to the inbox', t.m.protocol + t.m.pathname, 'mailto:j@jas.run');
+ok('mailto subject names the score', t.subject.startsWith('Seam audit: ' + view(w).score + '/100'), t.subject);
+ok('mailto body is the summary', t.body.startsWith('I ran my stack through SEAMS') && /Result: https:/.test(t.body), t.body);
+
+// no summary unless it is the visitor's own stack
+const plain = x => ({ s: x.s, body: x.body, from: x.c.searchParams.get('from') });
+let w7 = load('https://example.test/'), d7 = w7.document;
+eq('empty stack: clean form link', plain(cta(w7)), { s: null, body: 'I would like to talk about my stack.', from: 'seams' });
+d7.getElementById('bSample').click();
+eq('sample stack: clean form link', plain(cta(w7)).s, null);
+eq('shared link: clean form link', plain(cta(load('https://example.test/?r=' + state))).s, null);
+eq('shared link keeps from=seams', plain(cta(load('https://example.test/?r=' + state))).from, 'seams');
+d7.getElementById('shFresh') && d7.getElementById('shFresh').click();
+
+// the largest stack still fits the caps and keeps the result link whole
+w7 = load('https://example.test/'); d7 = w7.document;
+[...d7.querySelectorAll('.chip')].forEach(c => c.click());
+t = cta(w7);
+ok('max stack: 291 chips', view(w7).pressed === 291);
+ok('max stack: s within cap', t.s.length <= 1400, 'length ' + t.s.length);
+ok('max stack: link intact at the end', /Result: https:\/\/example\.test\/\?r=s-[lb][0-9a-z]+$/.test(t.s));
+ok('max stack: tools truncated with a count', /Tools: .*, and \d+ more\./.test(t.s));
+ok('max stack: mailto body within cap', t.body.length <= 900 + 2, 'length ' + t.body.length);
+ok('max stack: url stays under 8000 chars', t.c.href.length < 8000, 'length ' + t.c.href.length);
 
 eq('page errors', errors, []);
 console.log(passed + ' passed, ' + failed + ' failed');
