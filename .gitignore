@@ -5,3 +5,8 @@ deploy/logic.js
 page.js
 wrapped.html
 *.png
+
+# internal ops notes, kept local only
+deploy.md
+outreach_kit.md
+seams_handoff_*.md
