@@ -3,7 +3,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { analyze, decodeState, PRESETS } = require('./logic.js');
+const { analyze, decodeState, PRESETS, ITEMS } = require('./logic.js');
 const card = require('./card.js');
 
 const PORT = Number(process.env.PORT || 3010);
@@ -63,10 +63,30 @@ function analyzeParam(r) {
   return d ? analyze(d.sel, d.owner, d.extra) : null;
 }
 
-function renderPage(r) {
+// Each industry link (?start=<id>) previews as its own card: the stack the instrument loads for that industry.
+const PRESET_NOUN = { restaurant: 'restaurant', salon: 'salon', trades: 'trades', therapist: 'therapy practice', hotel: 'hotel', store: 'online store', course: 'course', consultancy: 'consultancy' };
+const PRESET_ANALYSIS = {};
+Object.keys(PRESETS).forEach(id => {
+  const sel = new Set();
+  ITEMS.forEach(it => { if (PRESETS[id].names.indexOf(it.name) > -1) sel.add(it.idx); });
+  PRESET_ANALYSIS[id] = analyze(sel, 1, 0);
+});
+function presetId(start) {
+  return typeof start === 'string' && /^[a-z]+$/.test(start) && Object.prototype.hasOwnProperty.call(PRESET_ANALYSIS, start) ? start : null;
+}
+function presetNoun(id) { return PRESET_NOUN[id] || PRESETS[id].label.toLowerCase(); }
+
+function renderPage(r, start) {
   const a = analyzeParam(r);
+  const pid = presetId(start);
   let title = DEFAULT_TITLE, desc = DEFAULT_DESC, url = ORIGIN + '/', image = ORIGIN + '/og-default.png';
-  if (a && a.n) {
+  if (pid) {
+    const pa = PRESET_ANALYSIS[pid];
+    title = 'SEAMS scores the ' + presetNoun(pid) + ' stack it loads at ' + pa.score + ' of 100';
+    desc = pa.roast + ' ' + pa.n + ' items, ' + pa.possible + ' possible seams.';
+    url = ORIGIN + '/?start=' + pid;
+    image = ORIGIN + '/og?start=' + pid;
+  } else if (a && a.n) {
     title = 'I scored ' + a.score + '/100 on SEAMS: ' + a.grade;
     desc = a.roast + ' ' + a.n + ' items, ' + a.possible + ' possible seams. Count yours.';
     url = ORIGIN + '/?r=' + r;
@@ -80,7 +100,19 @@ const CACHE_MAX = 500;
 const cache = new Map();
 const inflight = new Map();
 let defaultPng = null;
-async function ogFor(r) {
+async function ogFor(r, start) {
+  const pid = presetId(start);
+  if (pid) {
+    const key = 'start:' + pid;
+    if (cache.has(key)) return cache.get(key);
+    if (!inflight.has(key)) {
+      inflight.set(key, card.renderScore(PRESET_ANALYSIS[pid], presetNoun(pid).toUpperCase() + ' STACK').then(buf => {
+        cache.set(key, buf);
+        return buf;
+      }).finally(() => inflight.delete(key)));
+    }
+    return inflight.get(key);
+  }
   const a = analyzeParam(r);
   if (!a || !a.n) return defaultPng || (defaultPng = await card.renderDefault());
   if (cache.has(r)) { const v = cache.get(r); cache.delete(r); cache.set(r, v); return v; }
@@ -154,10 +186,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && p === '/b') return handleBeacon(req, res);
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'text/plain', 'Method not allowed', { Allow: 'GET, HEAD' });
     if (p === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', renderPage(u.searchParams.get('r')), { 'Cache-Control': 'public, max-age=300' });
+      return send(res, 200, 'text/html; charset=utf-8', renderPage(u.searchParams.get('r'), u.searchParams.get('start')), { 'Cache-Control': 'public, max-age=300' });
     }
     if (p === '/og' || p === '/og-default.png') {
-      const buf = await ogFor(p === '/og' ? u.searchParams.get('r') : null);
+      const buf = await ogFor(p === '/og' ? u.searchParams.get('r') : null, p === '/og' ? u.searchParams.get('start') : null);
       return send(res, 200, 'image/png', buf, { 'Cache-Control': 'public, max-age=604800' });
     }
     if (/^\/fonts\/[a-z0-9-]+\.woff2$/.test(p)) {

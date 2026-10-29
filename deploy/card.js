@@ -29,7 +29,7 @@ function t(text, o) {
 }
 function box(o) { return { type: 'div', props: { style: Object.assign({ display: 'flex', position: 'absolute' }, o), children: [] } }; }
 
-function frame(children) {
+function frame(children, footerRight) {
   return {
     type: 'div',
     props: {
@@ -41,7 +41,7 @@ function frame(children) {
         box({ left: 64, top: 96, width: 1072, height: 2, background: C.line })
       ].concat(children, [
         t(SITE_LABEL, { left: 64, top: 581, fontFamily: M, fontWeight: 500, fontSize: 18, letterSpacing: 2, color: C.amber }),
-        t('COUNT YOURS', { right: 64, top: 581, fontFamily: M, fontWeight: 500, fontSize: 18, letterSpacing: 2, color: C.dim })
+        t(footerRight || 'COUNT YOURS', { right: 64, top: 581, fontFamily: M, fontWeight: 500, fontSize: 18, letterSpacing: 2, color: C.dim })
       ])
     }
   };
@@ -59,7 +59,7 @@ function wrap(text, maxChars, maxLines) {
   return lines.slice(0, maxLines);
 }
 
-function scoreCard(a) {
+function scoreCard(a, label) {
   const word = a.n ? a.grade : 'NO DATA';
   const size = Math.max(28, Math.min(68, Math.floor(476 / (word.length * 0.66))));
   const on = Math.round(a.score / 5), segW = (536 - 19 * 4) / 20;
@@ -78,7 +78,7 @@ function scoreCard(a) {
     t(a.n + (a.n === 1 ? ' item' : ' items') + ' counted', { left: 660, top: 372, fontFamily: M, fontWeight: 500, fontSize: 26, color: C.cream }),
     t(a.possible + ' possible seams', { left: 660, top: 410, fontFamily: M, fontWeight: 500, fontSize: 26, color: C.cream }),
     t(a.seams.length + ' named failure points', { left: 660, top: 448, fontFamily: M, fontWeight: 500, fontSize: 26, color: C.cream })
-  ], roast.map((l, i) => t(l, { left: 64, top: 520 - 30 + i * 46, fontFamily: D, fontWeight: 800, fontSize: 38, letterSpacing: -1, color: C.cream }))));
+  ], roast.map((l, i) => t(l, { left: 64, top: 520 - 30 + i * 46, fontFamily: D, fontWeight: 800, fontSize: 38, letterSpacing: -1, color: C.cream }))), label);
 }
 
 function defaultCard() {
@@ -95,4 +95,4 @@ async function png(tree) {
   return new Resvg(svg, { fitTo: { mode: 'width', value: 1200 } }).render().asPng();
 }
 
-module.exports = { renderScore: a => png(scoreCard(a)), renderDefault: () => png(defaultCard()) };
+module.exports = { renderScore: (a, label) => png(scoreCard(a, label)), renderDefault: () => png(defaultCard()), scoreTree: scoreCard };
