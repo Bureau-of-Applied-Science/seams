@@ -69,7 +69,11 @@ eq('no seams listed', d.querySelectorAll('.seam').length, 0);
 // ---- sample
 d.getElementById('bSample').click();
 v = view(w);
-eq('sample score', v.score, '57');
+eq('sample score', v.score, '41');
+eq('sample grade', v.grade, 'TAPED');
+eq('sample headline', v.roast, 'HubSpot and Mailchimp will keep mailing someone who unsubscribed.');
+eq('sample is the HubSpot stack', [...d.querySelectorAll('.chip[aria-pressed="true"]')].map(c => c.textContent).sort(),
+  ['Google Workspace', 'Gusto', 'HubSpot', 'Mailchimp', 'QuickBooks', 'Square', 'Zoom']);
 eq('sample pressed', v.pressed, 7);
 ok('sample banner', /^Sample stack loaded/.test(v.banner));
 eq('sample does not write url', v.url, '/');
@@ -175,6 +179,13 @@ ws = load(stackUrl); ds = ws.document;
 ds.getElementById('shEdit').click();
 v = view(ws);
 eq('edit keeps stack, hides bar', [v.pressed > 0, v.shared], [true, false]);
+
+// ---- the course creator preset is deliberately unchanged
+{
+  const wc = load('https://example.test/?start=course'), dc = wc.document;
+  eq('course preset still loads Kajabi and Stripe', ['Kajabi', 'Stripe'].map(n => chip(dc, n).getAttribute('aria-pressed')), ['true', 'true']);
+  eq('course preset still has its seven tools', view(wc).pressed, 7);
+}
 
 // ---- outreach links, both forms
 for (const [label, url] of [['?start=', 'https://example.test/?start=restaurant'], ['#start-', 'https://example.test/#start-restaurant']]) {

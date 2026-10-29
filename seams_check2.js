@@ -33,7 +33,7 @@ const qs=[...Object.values(Q),...Object.values(SAMEQ),GLUE.q,...Object.values(HU
 if(qs.some(q=>/[\u2014\u2013]/.test(q)))P('dash in quip');
 out.counts={items:ITEMS.length,cats:CATS.length,kb:Object.keys(KB).length,same:Object.keys(SAME).length};
 const cases={
- sample:[['Stripe','Kajabi','Zendesk','Mailchimp','QuickBooks','Zapier','Google Sheets'],1,0],
+ sample:[['HubSpot','Mailchimp','QuickBooks','Square','Google Workspace','Gusto','Zoom'],1,0],
  restaurant:[['Toast','QuickBooks','Gusto','Mailchimp','Google Business Profile','Meta Business Suite','Google Workspace','Google Sheets'],1,0],
  hotel:[['Cloudbeds','Booking.com','Expedia','Stripe','QuickBooks','Mailchimp','WordPress','Google Business Profile','Google Workspace'],1,0],
  therapy:[['SimplePractice','Google Workspace','Mailchimp','Zoom','QuickBooks','ChatGPT','Google Calendar','Typeform'],1,0],
